@@ -4,4 +4,5 @@ library for creating archive formats using zero-copy ByteBuffers in Java
  - [x] Create `.tar` archives
  - [ ] Read support for `.tar` archives
  - [ ] Create `.zip` archives
- - [ ] Create `.zip` archives
+ - [ ] Read support for `.zip` archives
+ - [ ] Benchmarks
