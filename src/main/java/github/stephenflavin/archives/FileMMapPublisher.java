@@ -5,11 +5,15 @@ import static java.nio.file.StandardOpenOption.READ;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.concurrent.Flow;
 import java.util.stream.Stream;
+
+import jdk.nio.mapmode.ExtendedMapMode;
 
 /**
  * An implementation of {@link Flow.Publisher} that reads a file as {@link java.nio.MappedByteBuffer}s.
@@ -24,6 +28,20 @@ import java.util.stream.Stream;
  * </ol>
  */
 public class FileMMapPublisher implements Flow.Publisher<FileMMapPublisher.FileChunk> {
+
+    private static final boolean USE_EXTENDED_MAP_MODE;
+
+    static {
+        USE_EXTENDED_MAP_MODE = Stream.of(System.getProperty("useExtendedMapMode"), System.getenv("USE_EXTENDED_MAP_MODE"))
+            .filter(Objects::nonNull)
+            .map(Boolean::parseBoolean)
+            .findFirst()
+            .orElse(false);
+        if (USE_EXTENDED_MAP_MODE) {
+            System.getLogger(FileMMapPublisher.class.toString())
+                .log(java.lang.System.Logger.Level.INFO, "Use of jdk.nio.mapmode.ExtendedMapMode is enabled");
+        }
+    }
 
     private final Path path;
 
@@ -95,7 +113,7 @@ public class FileMMapPublisher implements Flow.Publisher<FileMMapPublisher.FileC
             // todo experiment with ExtendedMapMode.READ_ONLY_SYNC
             if (bytesToRead < Integer.MAX_VALUE) {
                 return Stream.of(new FileChunk(Math.max(1, Math.floorDiv(bytesToRead, OPTIMAL_READ_CHUNK_SIZE)),
-                        fc.map(READ_ONLY, currentOffset, bytesToRead)));
+                    mMap(currentOffset, bytesToRead)));
             }
 
             var finalOffset = currentOffset + bytesToRead;
@@ -113,10 +131,17 @@ public class FileMMapPublisher implements Flow.Publisher<FileMMapPublisher.FileC
                     chunks = 0;
                 }
                 fileChunks.add(new FileChunk(chunksPerBuffer,
-                        fc.map(READ_ONLY, currentOffset, bytesPerBuffer)));
+                    mMap(currentOffset, bytesPerBuffer)));
                 currentOffset += bytesPerBuffer;
             }
             return fileChunks.stream();
+        }
+
+        private MappedByteBuffer mMap(long currentOffset, long bytesToRead) throws IOException {
+            if (USE_EXTENDED_MAP_MODE) {
+                return fc.map(ExtendedMapMode.READ_ONLY_SYNC, currentOffset, bytesToRead);
+            }
+            return fc.map(READ_ONLY, currentOffset, bytesToRead);
         }
 
         @Override
