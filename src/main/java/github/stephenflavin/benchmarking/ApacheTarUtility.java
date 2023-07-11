@@ -46,6 +46,7 @@ public class ApacheTarUtility {
                     }
                     return Stream.of(path);
                 })
+            .filter(path -> !path.getFileName().startsWith("."))
                 .peek(path -> {
                     try {
                         size.addAndGet(Files.size(path));

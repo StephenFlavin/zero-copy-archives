@@ -24,12 +24,11 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class TarUtility {
+public class ByteBuffersTarUtility {
 
-    private static final System.Logger logger = System.getLogger(TarUtility.class.toString());
+    private static final System.Logger logger = System.getLogger(ByteBuffersTarUtility.class.toString());
     private static ExecutorService executorService = null;
 
     public static CompletableFuture<Path> createTarFile(Path archivePath, List<Path> filesToTar) throws FileNotFoundException {
@@ -41,35 +40,35 @@ public class TarUtility {
         var channel = randomAccessFile.getChannel();
 
         return createTar(src -> {
-                    try {
-                        channel.write(src);
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                },
-                filesToTar)
-                .handle((res, ex) -> {
-                    IOException closeFailure = null;
-                    try {
-                        randomAccessFile.close();
-                    } catch (IOException e) {
-                        closeFailure = e;
-                    }
-                    if (ex != null) {
-                        if (closeFailure != null) {
-                            ex.addSuppressed(closeFailure);
-                        }
-
-                        if (ex instanceof RuntimeException re) {
-                            throw re;
-                        }
-                        throw new CompletionException(ex);
-                    }
+                try {
+                    channel.write(src);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            },
+            filesToTar)
+            .handle((res, ex) -> {
+                IOException closeFailure = null;
+                try {
+                    randomAccessFile.close();
+                } catch (IOException e) {
+                    closeFailure = e;
+                }
+                if (ex != null) {
                     if (closeFailure != null) {
-                        throw new CompletionException(closeFailure);
+                        ex.addSuppressed(closeFailure);
                     }
-                    return archivePath;
-                });
+
+                    if (ex instanceof RuntimeException re) {
+                        throw re;
+                    }
+                    throw new CompletionException(ex);
+                }
+                if (closeFailure != null) {
+                    throw new CompletionException(closeFailure);
+                }
+                return archivePath;
+            });
     }
 
     public static CompletableFuture<Void> createTarFile(WritableByteChannel byteChannel, List<Path> filesToTar) throws FileNotFoundException {
@@ -78,13 +77,13 @@ public class TarUtility {
 
     public static CompletableFuture<Void> createTarFile(WritableByteChannel byteChannel, Path... filesToTar) {
         return createTar(src -> {
-                    try {
-                        byteChannel.write(src);
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                },
-                filesToTar);
+                try {
+                    byteChannel.write(src);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            },
+            filesToTar);
     }
 
     private static CompletableFuture<Void> createTar(Consumer<ByteBuffer> bufferConsumer, Path... filesToTar) {
@@ -160,41 +159,36 @@ public class TarUtility {
 
         var size = new AtomicLong();
         var filesToTar = Arrays.stream(args)
-                .skip(skip)
-                .map(Path::of)
-                .flatMap(path -> {
-                    if (path.toFile().isDirectory()) {
-                        if (recurse) {
-                            return extractFilePathsFromDir(path);
-                        }
-                        throw new IllegalArgumentException("Provided path \"" + path + "\" is a directory, to extract directory files pass"
-                                + " -r or --recurse as the second argument.");
+            .skip(skip)
+            .map(Path::of)
+            .flatMap(path -> {
+                if (path.toFile().isDirectory()) {
+                    if (recurse) {
+                        return extractFilePathsFromDir(path);
                     }
-                    return Stream.of(path);
-                })
-                .peek(path -> {
-                    try {
-                        size.addAndGet(Files.size(path));
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                })
-                .toArray(Path[]::new);
+                    throw new IllegalArgumentException("Provided path \"" + path + "\" is a directory, to extract directory files pass"
+                        + " -r or --recurse as the second argument.");
+                }
+                return Stream.of(path);
+            })
+            .filter(path -> !path.getFileName().startsWith("."))
+            .peek(path -> {
+                try {
+                    size.addAndGet(Files.size(path));
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            })
+            .toArray(Path[]::new);
 
         logger.log(INFO, "Starting to create tarball for {0}bytes at {1}", size.get(), archivePath);
         var started = Clock.systemUTC().millis();
         createTarFile(archivePath, filesToTar).join();
         var msToCompletion = Clock.systemUTC().millis() - started;
         logger.log(INFO,
-                "Completed creating tarball in {0} seconds, achieved {1}bytes/sec",
-                msToCompletion / 1000d,
-                (size.get() / (double) msToCompletion) * 1000);
-        var completedFileSize = Files.size(archivePath);
-        System.out.println(TarUtility.class.getSimpleName()
-                + "," + completedFileSize
-                + "," + (msToCompletion / 1000d)
-                + "," + ((completedFileSize / (double) msToCompletion) * 1000));
-
+            "Completed creating tarball in {0} seconds, achieved {1}bytes/sec",
+            msToCompletion / 1000d,
+            (size.get() / (double) msToCompletion) * 1000);
         executor().shutdownNow();
     }
 
