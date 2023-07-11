@@ -24,6 +24,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class TarUtility {
@@ -148,10 +149,14 @@ public class TarUtility {
         return executorService;
     }
 
-    public static void main(String[] args) throws FileNotFoundException {
+    public static void main(String[] args) throws IOException {
         var archivePath = Path.of(args[0]);
         var recurse = args[1].equals("-r") || args[1].equals("--recurse");
         var skip = recurse ? 2 : 1;
+
+        if (Files.exists(archivePath)) {
+            throw new IllegalArgumentException("Archive already exists at " + archivePath);
+        }
 
         var size = new AtomicLong();
         var filesToTar = Arrays.stream(args)
@@ -171,7 +176,7 @@ public class TarUtility {
                     try {
                         size.addAndGet(Files.size(path));
                     } catch (IOException e) {
-                        throw   new UncheckedIOException(e);
+                        throw new UncheckedIOException(e);
                     }
                 })
                 .toArray(Path[]::new);
@@ -184,6 +189,12 @@ public class TarUtility {
                 "Completed creating tarball in {0} seconds, achieved {1}bytes/sec",
                 msToCompletion / 1000d,
                 (size.get() / (double) msToCompletion) * 1000);
+        var completedFileSize = Files.size(archivePath);
+        System.out.println(TarUtility.class.getSimpleName()
+                + "," + completedFileSize
+                + "," + (msToCompletion / 1000d)
+                + "," + ((completedFileSize / (double) msToCompletion) * 1000));
+
         executor().shutdownNow();
     }
 
