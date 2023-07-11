@@ -12,7 +12,7 @@ import java.nio.file.Path;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Semaphore;
 
-import github.stephenflavin.archives.tar.TaringPublisher;
+import github.stephenflavin.archives.tar.ByteBufferTaringPublisher;
 
 public class MyTar {
 
@@ -33,7 +33,7 @@ public class MyTar {
     }
 
     private static void createTar() {
-        TaringPublisher taringPublisher = new TaringPublisher(BENCHMARK_FILES);
+        ByteBufferTaringPublisher byteBufferTaringPublisher = new ByteBufferTaringPublisher(BENCHMARK_FILES);
 
         try {
             Flow.Subscriber<ByteBuffer> subscriber = new Flow.Subscriber<>() {
@@ -78,7 +78,7 @@ public class MyTar {
                 }
             };
 
-            taringPublisher.subscribe(subscriber);
+            byteBufferTaringPublisher.subscribe(subscriber);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

@@ -88,7 +88,7 @@ public class TarUtility {
     }
 
     private static CompletableFuture<Void> createTar(Consumer<ByteBuffer> bufferConsumer, Path... filesToTar) {
-        var taringPublisher = new TaringPublisher(filesToTar);
+        var taringPublisher = new ByteBufferTaringPublisher(filesToTar);
 
         var future = new AtomicReference<CompletableFuture<Void>>();
         var subscriber = new Flow.Subscriber<ByteBuffer>() {

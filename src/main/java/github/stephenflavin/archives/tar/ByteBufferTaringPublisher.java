@@ -9,16 +9,15 @@ import java.util.concurrent.Flow;
 import java.util.function.Consumer;
 
 import github.stephenflavin.archives.FileMMapPublisher;
-import github.stephenflavin.archives.tar.Entry;
 
-public class TaringPublisher implements Flow.Publisher<ByteBuffer> {
+public class ByteBufferTaringPublisher implements Flow.Publisher<ByteBuffer> {
 
     private static final int CHUNK_SIZE = 512;
     private static final ByteBuffer PADDING = ByteBuffer.allocateDirect(CHUNK_SIZE * 2).asReadOnlyBuffer();
 
     private final Path[] paths;
 
-    public TaringPublisher(Path... paths) {
+    public ByteBufferTaringPublisher(Path... paths) {
         for (Path path : paths) {
             if (path.toFile().isDirectory()) {
                 throw new UnsupportedOperationException("Directory taring is unsupported");
